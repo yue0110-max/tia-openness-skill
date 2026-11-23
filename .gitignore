@@ -1,0 +1,22 @@
+# runtime / local artifacts (never commit)
+config.json
+*.log
+*.status
+.gh_state.json
+.gh_token
+
+# TIA project copies staged locally
+*.ap18
+*.ap19
+*.ap20
+*.zap18
+*.zap19
+*.zap20
+
+# editor / OS noise
+Thumbs.db
+desktop.ini
+.vs/
+.vscode/
+.idea/
+__pycache__/

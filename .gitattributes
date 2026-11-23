@@ -1,0 +1,3 @@
+# Keep file bytes exactly as authored (these are Windows PowerShell scripts
+# and UTF-8 docs; no line-ending rewriting on checkout).
+* -text
