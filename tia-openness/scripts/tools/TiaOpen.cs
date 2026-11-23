@@ -371,7 +371,8 @@ class TiaOpen
             MethodInfo import = FindFileImport(tables);
             if (import == null)
             {
-                stats[1] += files.Length;
+                // Older Openness builds have no tag Import at all: warn, do not
+                // fail the run - the blocks still imported fine.
                 L("no tag Import on this Openness version - " + files.Length
                   + " file(s) skipped in " + dir + " (add the tags in the GUI)");
             }
