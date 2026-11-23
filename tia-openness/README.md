@@ -97,6 +97,11 @@ Get-Content "C:\ProgramData\TiaOpenness\work\last-project.txt" -Encoding UTF8
 工具模式：`info` / `dump` / `export` / `import` / `compile` / `saveas` / `selfcheck` / `attach`
 （详见 `SKILL.md`）。
 
+`export` 会同时导出**变量表**（`<软件>\tags\`），`import` 会把它一起导回去
+（V15.1+）：所以"新建一个 PLC 变量"也可以完全不开界面——复制同表里已有的
+`<SW.Tags.PlcTag>` 节点，改 `Name` / `DataTypeName` / `LogicalAddress`，再 `import` 即可。
+配方见 `references/workflow-playbook.md` 第六节。
+
 ---
 
 ## 五、安全与卸载
@@ -122,6 +127,8 @@ Remove-Item "C:\ProgramData\TiaOpenness" -Recurse -Force
 | `GetProcesses count = 0` | 客户端身份不对（服务/S4U 令牌），改用 `run.ps1` |
 | 中文路径报"目录名称无效" | 工程放 `C:\ProgramData\TiaOpenness\work`（`stage-project.ps1` 会授权） |
 | import 报 `already contains an object` | 用 `overwrite:yes`（默认已开启） |
+| import 报 `no tag Import on this Openness version` | 该版 Openness 不支持变量表导入；块仍会导入，变量在界面里加 |
+| import 报 `tag import ERR ...` | 变量 XML 有问题（地址冲突 / 类型名错）；看 `\|` 后的原始消息 |
 
 逐条根因与更多坑见 `references/troubleshooting.md`；安全模型（含注册表布局与实测证据）见
 `references/security-model.md`；改码与核验配方见 `references/workflow-playbook.md`。

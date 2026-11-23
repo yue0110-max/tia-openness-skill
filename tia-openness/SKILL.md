@@ -80,8 +80,8 @@ Get-Content -LiteralPath "C:\ProgramData\TiaOpenness\logs\dump01.status" -Encodi
 |---|---|---|
 | `info` | – | 身份、会话、当前运行的 TIA 实例 |
 | `dump` | `<工程>` | 设备/软件/块分组/块(名称,块号,语言)/变量表/变量数 |
-| `export` | `<工程> <输出目录> [名字过滤]` | 块导出为 XML（按分组建目录）+ 变量表 XML |
-| `import` | `<工程> <导出目录> [save:yes\|no] [overwrite:yes\|no]` | 导入 XML（默认覆盖同名块、默认保存） |
+| `export` | `<工程> <输出目录> [名字过滤]` | 块导出为 XML（按分组建目录）+ 变量表 XML（含变量表子分组） |
+| `import` | `<工程> <导出目录> [save:yes\|no] [overwrite:yes\|no]` | 导入块 XML **和变量表 XML**（默认覆盖同名对象、默认保存）；有任何错误时退出码 3 |
 | `compile` | `<工程> [save:yes\|no]` | 编译并打印 `State/ErrorCount/WarningCount` 与每条消息 |
 | `saveas` | `<工程> <目标目录>` | 另存为（副本/归档） |
 | `selfcheck` | `<工程>` | dump + compile，不保存（体检用） |
@@ -91,10 +91,12 @@ Get-Content -LiteralPath "C:\ProgramData\TiaOpenness\logs\dump01.status" -Encodi
 
 1. `stage-project.ps1` 复制工程到暂存区。
 2. `dump` → 记录设备、PLC 软件名、块清单（块名/块号/语言）。
-3. `export` 到 `C:\ProgramData\TiaOpenness\out\<批次>` → 得到每个块的 XML。
+3. `export` 到 `C:\ProgramData\TiaOpenness\out\<批次>` → 得到每个块的 XML 和 `tags\` 下的变量表 XML。
 4. 用 read/edit 工具改 XML。SCL 块的源码在 XML 里是明文（`<StructuredText>` 或 `SCL` 文本节点），
    改逻辑最稳；LAD/FBD 改 XML 结构易错，优先把逻辑放 SCL 或新建 SCL 块。
-5. `import <工程> <批次目录> save:no overwrite:yes` → 看 `errors = 0`。
+   要**新建 PLC 变量**就把 `<SW.Tags.PlcTag>` 节点复制一份改 `Name`/`DataTypeName`/`LogicalAddress`（详见 playbook 第六节）。
+5. `import <工程> <批次目录> save:no overwrite:yes` → 看 `IMPORT TOTAL imported = N errors = 0`
+   （同一次 import 会先导块、再导 `tags\` 下的变量表）。
 6. `compile <工程> save:no` → 必须 `State = Success`、`ErrorCount = 0`。
 7. 通过后 `compile <工程> save:yes`（或 import 带 save:yes）落盘。
 8. 把暂存区里改好的工程文件夹复制回用户目录（先备份原工程），让用户在 TIA 里重新打开并下载。
@@ -115,6 +117,11 @@ Get-Content -LiteralPath "C:\ProgramData\TiaOpenness\logs\dump01.status" -Encodi
 - **串行执行作业**：一个 job 一个 TIA 实例，别并发跑多个 dump/compile。
 - **日志/配置都是 UTF-8（无 BOM）**：读文件必须 `Get-Content -Encoding UTF8`；
   交给提权脚本的路径走 UTF-8 配置文件而不是命令行参数（中文路径会被 ANSI 解码破坏）。
+- **变量表导入是 V15.1+ 的可选能力**：日志出现 `no tag Import on this Openness version`
+  表示该版本没有 `Import`，变量只能在 GUI 里加（块导入仍然成功）；出现 `tag import ERR <文件> | ...`
+  时后面跟的是 Openness 原始消息，最常见是**地址冲突**或 `DataTypeName` 拼错。
+- **`import` 有任何错误时退出码 3**：看日志最后一行 `IMPORT TOTAL imported = N errors = M`，
+  M > 0 就别急着 compile，先修 XML 再重导。
 
 ## 6. 排障速查
 
@@ -126,6 +133,8 @@ Get-Content -LiteralPath "C:\ProgramData\TiaOpenness\logs\dump01.status" -Encodi
 | `Connection to TiaPortal failed.` | 客户端会话/权限不对 | 同上；确认以 `TiaOpenness` 身份运行（日志第一行 identity） |
 | `error CS0016: 无法写入输出文件` | 旧 `TiaOpen.exe` 仍在运行 | `Get-Process TiaOpen | Stop-Process -Force` 后重跑 `setup.ps1` |
 | import 报 `composition already contains an object` | 未覆盖导入 | `import ... overwrite:yes`（默认已是 yes） |
+| 日志 `no tag Import on this Openness version` | 该版 Openness 没有变量表导入 | 只导块；变量在 GUI 里加 |
+| 日志 `tag import ERR ... \| ...` | 变量地址冲突 / `DataTypeName` 不认识 / XML 结构不对 | 对照同表已有变量的写法改；地址必须不重复 |
 | `目录名称无效` / 访问被拒 | 目标用户无权访问该路径 | 工程放 `C:\ProgramData\TiaOpenness\work`（`stage-project.ps1` 自动处理 ACL） |
 
 更多细节：`references/security-model.md`（安全模型与注册表布局证据）、

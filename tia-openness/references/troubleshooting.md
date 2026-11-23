@@ -24,6 +24,11 @@
 | `import` 报 `Cannot import object with Simatic ML ID '0' … already contains an object with the same values for the identifier(s) 'Name, Namespace'` | 同名块已存在且未覆盖 | `import … overwrite:yes`（默认已开） |
 | `import` 报 `The block is inconsistent / 需要重新编译` | 块被外部修改后未编译 | 正常：`compile` 一次即可 |
 | `saveas` 报参数类型错（`CS1502`） | `Project.SaveAs` 只接受 `DirectoryInfo` | 代码里用 `new DirectoryInfo(dir)`；工具用法 `saveas <src> <目标目录>` |
+| 日志 `no tag Import on this Openness version` | 该版本的 `PlcTagTableComposition` 没有 `Import(FileInfo)` 重载（工具是反射找的） | 不是错误：块照常导入；变量只能在 GUI 里加。V15.1+ 一般都有 |
+| 日志 `tag import ERR <文件> \| Siemens.Engineering.…: <消息>` | 变量 XML 本身有问题：地址冲突、`DataTypeName` 不认识、节点结构不对 | 看 `\|` 后面的原始消息；对照同一张表里**已有变量**的写法改；地址必须唯一且位/字节粒度对得上 |
+| 日志 `created tag group <名>` 之后又报导入失败 | XML 里的表名与目标分组不一致，或组名非法 | 表名放在 `<AttributeList><Name>`，分组靠**目录层级**表达 |
+| 日志 `skip tag subfolder <名> (group could not be resolved)` | 该 Openness 版本的 `TagTableGroup` 没有 `Groups.Create` | 把变量表放到已有的分组里，或直接在顶层 `tags\` 下放文件 |
+| `import` 退出码 3 但块都导进去了 | 变量表有错误（`IMPORT TOTAL … errors = N`，N>0） | 正常设计：块成功 + 变量失败也算失败。修完变量 XML 重导 |
 
 ### 白名单随手核查
 

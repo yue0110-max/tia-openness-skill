@@ -38,6 +38,14 @@
 - LAD 块的网络体是 `FlgNet`（`Part` / `Instruction` / `Wire` / `NameCon`），结构复杂；
 - `ID` / `UId` 只要在文件内唯一即可，新加的编号取"当前最大 + 1"。
 
+`export` 输出目录的形状（块与变量表并列，**import 时按同样的形状读回**）：
+
+```
+<输出目录>\<软件名>\blocks\<分组名>\<块名>.xml      ← 块，递归分组
+<输出目录>\<软件名>\tags\<变量表名>.xml             ← 变量表（V15.1+ 可回导）
+<输出目录>\<软件名>\tags\<子分组>\<变量表名>.xml    ← 变量表子分组
+```
+
 ---
 
 ## 二、SCL 的 token 语法（改代码必须懂这个）
@@ -166,14 +174,34 @@ SCL 源码在 XML 里**不是一段文本，而是 token 序列**。常用节点
 
 - 全局 DB 的初值：`<Section Name="Static"><Member Name="x" Datatype="DInt" StartValue="5" />`；
   改 `StartValue` 不改变运行中的当前值（下载后才生效），也别改 `Datatype`。
-- 变量表导出为 `<Document><SW.Tags.PlcTagTable>`；改地址/名称后 `import` 同名覆盖。
+- 变量表导出为 `<Document><SW.Tags.PlcTagTable ID="…">`，表名在 `<AttributeList><Name>`，
+  变量在 `<ObjectList>` 下每个 `<SW.Tags.PlcTag>` 一项。
+- **变量可以回导（V15.1+）**：`export` 出来的目录里除了 `<软件>\blocks\` 还有 `<软件>\tags\`，
+  改完 `tags\` 下的 XML 后照常 `import`——工具会在同一次 import 里**先导块、再导变量表**。
+  新增一张表就是在 `tags\` 下再放一个 XML 文件。
+- **新建变量的最小做法**：从同表的已有变量复制一个 `<SW.Tags.PlcTag>` 节点，改三处：
+
+  ```xml
+  <SW.Tags.PlcTag ID="7">
+    <AttributeList>
+      <Name>Start_Btn</Name>
+      <DataTypeName>Bool</DataTypeName>
+      <LogicalAddress>%I0.0</LogicalAddress>
+    </AttributeList>
+  </SW.Tags.PlcTag>
+  ```
+
+  `ID` 只在**本文件内**唯一即可；`DataTypeName` 用 PLC 类型名（`Bool` / `Int` / `Real` / `DInt` / `Time` / 自定义 UDT 名）；
+  `LogicalAddress` 必须符合类型——`Bool` 按位（`%M10.3`）、字节/字/双字按字节（`%MB10` / `%MW10` / `%MD12`），且**不能与已有变量重复**。
+  > 以上是 V15.1+ 的典型结构，各版本导出的属性集合略有差异。**永远以实际 `export` 出来的文件当模板**，
+  > 不要凭记忆加属性；最稳的做法是先在 GUI 里建一张表、导出一次，把它当"样本"反复复制。
 - 变量名改动会连带影响所有引用该变量的代码——**先用 `export` 出来的 XML 做全文 grep 确认引用面**（见下）。
 
 ---
 
 ## 七、核验（每一步都要做）
 
-1. `import` 后看 `errors = 0`；
+1. `import` 后看日志末行 `IMPORT TOTAL imported = N errors = 0`（块与变量表一起统计）；有 `tag import ERR` 先修变量 XML；
 2. `compile` 必须 `State = Success`、`ErrorCount = 0`；`WarningCount` 要复核（常见"变量未使用"可接受，接口/类型警告必须看）；
 3. **再 `export` 一次改后的块，与原 XML 做 diff**——这是"我到底改了什么"的唯一可信证据；
 4. 结构性检查（人看）：改动是否影响 HMI 地址、是否改到安全/驱动通信块（`SINA_POS_V90`、`FB_PN352` 这类）、

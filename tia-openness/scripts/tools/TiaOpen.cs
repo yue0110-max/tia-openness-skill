@@ -4,6 +4,8 @@
 //   dump     <projectPath>            open project (no UI), dump devices/blocks/tags, close
 //   export   <projectPath> <outDir> [filter]
 //   import   <projectPath> <inDir> [save:yes|no] [overwrite:yes|no]
+//            imports <inDir>\<software>\blocks\**\*.xml (blocks)
+//            and     <inDir>\<software>\tags\**\*.xml   (tag tables, V15.1+)
 //   compile  <projectPath> [save:yes|no]
 //   saveas   <srcProject> <dstDirectory>
 //   attach   <pid>                    attach to a running GUI instance and dump
@@ -285,6 +287,146 @@ class TiaOpen
         }
     }
 
+    // ---------- tag tables (export / import) ---------------------------------
+    // Everything below is reflection based on purpose: the Tags API differs
+    // between V15.1 and V20 (Import overloads, group composition types), and a
+    // missing member must degrade to a clear log line instead of a crash.
+
+    static object GetProp(object o, string name)
+    {
+        if (o == null) return null;
+        try
+        {
+            PropertyInfo pi = o.GetType().GetProperty(name);
+            return (pi == null) ? null : pi.GetValue(o, null);
+        }
+        catch { return null; }
+    }
+
+    static string NameOf(object o)
+    {
+        object n = GetProp(o, "Name");
+        return (n == null) ? "" : Convert.ToString(n);
+    }
+
+    static string MsgOf(Exception ex)
+    {
+        if (ex is TargetInvocationException && ex.InnerException != null) ex = ex.InnerException;
+        return ex.GetType().Name + ": " + ex.Message;
+    }
+
+    static MethodInfo FindFileImport(object composition)
+    {
+        if (composition == null) return null;
+        foreach (MethodInfo mi in composition.GetType().GetMethods())
+        {
+            if (mi.Name != "Import") continue;
+            ParameterInfo[] ps = mi.GetParameters();
+            if (ps.Length >= 1 && ps[0].ParameterType == typeof(FileInfo)) return mi;
+        }
+        return null;
+    }
+
+    static void ExportTagDir(object group, string dir, int[] stats)
+    {
+        if (group == null) return;
+        Directory.CreateDirectory(dir);
+        IEnumerable tables = GetProp(group, "TagTables") as IEnumerable;
+        if (tables != null)
+        {
+            foreach (object tt in tables)
+            {
+                string name = NameOf(tt);
+                if (name.Length == 0) name = "tagtable";
+                try
+                {
+                    MethodInfo exp = tt.GetType().GetMethod("Export",
+                        new Type[] { typeof(FileInfo), typeof(ExportOptions) });
+                    if (exp == null) { stats[1]++; L("tag export ERR " + name + " | no Export method"); continue; }
+                    string file = Path.Combine(dir, SafeName(name) + ".xml");
+                    exp.Invoke(tt, new object[] { new FileInfo(file), ExportOptions.None });
+                    stats[0]++;
+                    L("export tag table " + name + " -> " + file);
+                }
+                catch (Exception e) { stats[1]++; L("tag export ERR " + name + " | " + MsgOf(e)); }
+            }
+        }
+        IEnumerable subs = GetProp(group, "Groups") as IEnumerable;
+        if (subs == null) return;
+        foreach (object sub in subs)
+        {
+            string nm = NameOf(sub);
+            if (nm.Length == 0) continue;
+            ExportTagDir(sub, Path.Combine(dir, SafeName(nm)), stats);
+        }
+    }
+
+    static void ImportTagDir(object group, string dir, ImportOptions mode, int[] stats)
+    {
+        if (group == null) return;
+        object tables = GetProp(group, "TagTables");
+        string[] files = Directory.GetFiles(dir, "*.xml");
+        if (files.Length > 0)
+        {
+            MethodInfo import = FindFileImport(tables);
+            if (import == null)
+            {
+                stats[1] += files.Length;
+                L("no tag Import on this Openness version - " + files.Length
+                  + " file(s) skipped in " + dir + " (add the tags in the GUI)");
+            }
+            else
+            {
+                ParameterInfo[] pars = import.GetParameters();
+                foreach (string file in files)
+                {
+                    object[] argv = (pars.Length >= 2)
+                        ? new object[] { new FileInfo(file), mode }
+                        : new object[] { new FileInfo(file) };
+                    try { import.Invoke(tables, argv); stats[0]++; L("imported tag table " + file); }
+                    catch (Exception e) { stats[1]++; L("tag import ERR " + Path.GetFileName(file) + " | " + MsgOf(e)); }
+                }
+            }
+        }
+        object groups = GetProp(group, "Groups");
+        foreach (string sub in Directory.GetDirectories(dir))
+        {
+            string name = Path.GetFileName(sub);
+            object target = null;
+            if (groups != null)
+            {
+                IEnumerable exist = groups as IEnumerable;
+                if (exist != null)
+                {
+                    foreach (object g in exist)
+                    {
+                        if (string.Equals(NameOf(g), name, StringComparison.OrdinalIgnoreCase)) { target = g; break; }
+                    }
+                }
+                if (target == null)
+                {
+                    MethodInfo create = groups.GetType().GetMethod("Create", new Type[] { typeof(string) });
+                    if (create != null)
+                    {
+                        try { target = create.Invoke(groups, new object[] { name }); L("created tag group " + name); }
+                        catch (Exception e) { L("tag group ERR " + name + " | " + MsgOf(e)); }
+                    }
+                }
+            }
+            if (target != null) ImportTagDir(target, sub, mode, stats);
+            else L("skip tag subfolder " + name + " (group could not be resolved)");
+        }
+    }
+
+    static void ImportTagTables(PlcSoftware sw, string tagDir, ImportOptions mode, int[] stats)
+    {
+        if (!Directory.Exists(tagDir)) { L("no tags folder " + tagDir + " (skipped)"); return; }
+        object group = null;
+        try { group = sw.TagTableGroup; }
+        catch (Exception ex) { L("tag group ERR " + ex.Message); stats[1]++; return; }
+        ImportTagDir(group, tagDir, mode, stats);
+    }
+
     static string Arg(string[] a, int i, string def)
     {
         return (a.Length > i) ? a[i] : def;
@@ -453,18 +595,9 @@ class TiaOpen
                 try
                 {
                     string tagDir = Path.Combine(outDir, SafeName(sw.Name), "tags");
-                    Directory.CreateDirectory(tagDir);
-                    int tn = 0;
-                    foreach (PlcTagTable tt in sw.TagTableGroup.TagTables)
-                    {
-                        try
-                        {
-                            tt.Export(new FileInfo(Path.Combine(tagDir, SafeName(tt.Name) + ".xml")), ExportOptions.None);
-                            tn++;
-                        }
-                        catch (Exception ex) { L("tag export ERR " + tt.Name + " | " + ex.Message); }
-                    }
-                    L("exported tag tables = " + tn);
+                    int[] tagStats = new int[2];
+                    ExportTagDir(sw.TagTableGroup, tagDir, tagStats);
+                    L("exported tag tables = " + tagStats[0] + " errors = " + tagStats[1]);
                 }
                 catch (Exception ex) { L("tag group ERR " + ex.Message); }
             }
@@ -487,6 +620,8 @@ class TiaOpen
         L("import mode = " + (overwrite ? "overwrite" : "create only"));
         L("ImportOptions available = " + string.Join(", ", Enum.GetNames(typeof(ImportOptions))));
         ImportOptions mode = ImportMode(overwrite);
+        int totalErr = 0;
+        int totalOk = 0;
         TiaPortal tia = NewInstance();
         try
         {
@@ -494,12 +629,28 @@ class TiaOpen
             foreach (PlcSoftware sw in FindPlcSoftware(p))
             {
                 L("== software " + sw.Name);
-                string root = Path.Combine(inDir, SafeName(sw.Name), "blocks");
-                if (!Directory.Exists(root)) { L("no export folder " + root); continue; }
                 int[] stats = new int[2];
-                ImportDir(sw.BlockGroup, root, mode, stats);
-                L("imported blocks = " + stats[0] + " errors = " + stats[1]);
+                string root = Path.Combine(inDir, SafeName(sw.Name), "blocks");
+                if (Directory.Exists(root))
+                {
+                    ImportDir(sw.BlockGroup, root, mode, stats);
+                    L("imported blocks = " + stats[0] + " errors = " + stats[1]);
+                }
+                else L("no blocks folder " + root + " (skipped)");
+
+                int[] tagStats = new int[2];
+                string tagRoot = Path.Combine(inDir, SafeName(sw.Name), "tags");
+                if (Directory.Exists(tagRoot))
+                {
+                    ImportTagTables(sw, tagRoot, mode, tagStats);
+                    L("imported tag tables = " + tagStats[0] + " errors = " + tagStats[1]);
+                }
+                else L("no tags folder " + tagRoot + " (skipped)");
+
+                totalOk += stats[0] + tagStats[0];
+                totalErr += stats[1] + tagStats[1];
             }
+            L("IMPORT TOTAL imported = " + totalOk + " errors = " + totalErr);
             if (string.Equals(saveFlag, "yes", StringComparison.OrdinalIgnoreCase))
             {
                 L("saving project ...");
@@ -511,7 +662,7 @@ class TiaOpen
             L("CLOSE OK");
         }
         finally { try { tia.Dispose(); L("DISPOSE OK"); } catch { } }
-        return 0;
+        return (totalErr > 0) ? 3 : 0;
     }
 
     static int CmdCompile(string[] a)

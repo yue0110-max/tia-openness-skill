@@ -1,6 +1,6 @@
 # tia-openness-skill
 
-一个 **DeepSeek Harness（DSH）skill**：让 AI agent 通过西门子官方 **TIA Portal Openness API** 直接读写本机博途工程——不点鼠标、不开界面，就能枚举工程、导出/导入 PLC 块、改逻辑、**编译核验**并保存。
+一个 **DeepSeek Harness（DSH）skill**：让 AI agent 通过西门子官方 **TIA Portal Openness API** 直接读写本机博途工程——不点鼠标、不开界面，就能枚举工程、导出/导入 PLC 块与变量表、改逻辑、**编译核验**并保存。
 
 适用：TIA Portal **V15.1 – V20**，**S7-1200 / S7-1500**（S7-300/400 不支持 Openness）。
 
