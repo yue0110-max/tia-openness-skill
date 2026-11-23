@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TIA Portal Openness">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#0f172a"/>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="#22d3ee" stroke-opacity="0.45" stroke-width="1.5"/>
+  <g stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round">
+    <path d="M16 20h32"/>
+    <path d="M32 20v9"/>
+    <path d="M22 33v7h20v-7"/>
+    <path d="M22 40v5"/>
+    <path d="M32 40v5"/>
+    <path d="M42 40v5"/>
+  </g>
+  <circle cx="22" cy="48" r="2.6" fill="#22d3ee"/>
+  <circle cx="32" cy="48" r="2.6" fill="#22d3ee"/>
+  <circle cx="42" cy="48" r="2.6" fill="#22d3ee"/>
+  <g fill="#22d3ee" fill-opacity="0.9">
+    <rect x="15" y="15.5" width="5" height="4" rx="1"/>
+    <rect x="44" y="15.5" width="5" height="4" rx="1"/>
+  </g>
+</svg>

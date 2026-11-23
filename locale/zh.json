@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "博途 PLC 接入（TIA Openness）",
+    "description": "把 tia-openness skill 装进 DSH：agent 通过西门子 Openness API 直接读写本机博途工程（V15.1–V20，S7-1200/1500）——列工程与块、导出/编辑/导入块 XML 与变量表、编译核验并保存，全程不用打开 TIA 界面。附一个只读诊断工具 tia_openness_status，先告诉你这台机器能不能跑、下一步该执行什么。",
+    "detail": "docs/detail.zh.md"
+  }
+}

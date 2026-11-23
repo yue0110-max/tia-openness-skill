@@ -1,0 +1,22 @@
+# dsh-tia-openness — bundle patch layer
+#
+# This package ships one host half (`index.js`) and nothing else: it registers
+# the bundled `tia-openness` skill and one read-only diagnostic tool
+# (`tia_openness_status`). The PLC access itself lives in the skill payload
+# under `./tia-openness` (PowerShell scripts + the C# TiaOpen tool), not in a
+# service of its own, so this layer has exactly one row.
+#
+# Two rules the row below follows:
+#
+#   * `id` must equal the package name. The storefront's submission preflight
+#     matches patch entry ids against the package name, and a bare id would
+#     collide with some other plugin's row.
+#   * the `id:` line carries no trailing comment. That preflight reads the value
+#     with a line-anchored regex, so a comment there makes it read nothing and
+#     the submission is rejected as missing its entry id.
+#
+# The loader resolves `name` from the profile's node_modules, i.e. this package.
+#
+- insert:
+    - id: dsh-tia-openness
+      name: 'dsh-tia-openness'

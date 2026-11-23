@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "TIA Portal Access (Openness)",
+    "description": "Brings the tia-openness skill into DSH: the agent drives a local Siemens TIA Portal project (V15.1-V20, S7-1200/1500) through the Openness API - list projects and blocks, export/edit/import block XML and PLC tag tables, compile and save - without opening the TIA GUI. Ships one read-only diagnostic tool, tia_openness_status, that reports whether this machine can run the skill and the exact next command to run.",
+    "detail": "docs/detail.en.md"
+  }
+}

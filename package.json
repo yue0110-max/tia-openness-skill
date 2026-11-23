@@ -1,0 +1,57 @@
+{
+  "name": "dsh-tia-openness",
+  "version": "0.1.0",
+  "private": false,
+  "description": "DeepSeek Harness plugin that registers the tia-openness skill: drive Siemens TIA Portal (V15.1-V20, S7-1200/1500) through the Openness API from an agent - enumerate projects and blocks, export/edit/import block XML, compile and save, without opening the TIA GUI.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon.svg": "./icon.svg"
+  },
+  "icon": "icon.svg",
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale",
+    "docs",
+    "icon.svg",
+    "tia-openness",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "tia-portal",
+    "siemens",
+    "openness",
+    "plc",
+    "s7-1200",
+    "s7-1500",
+    "automation",
+    "skill"
+  ],
+  "homepage": "https://github.com/Yue0110-Max/tia-openness-skill#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yue0110-Max/tia-openness-skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Yue0110-Max/tia-openness-skill/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/smoke.mjs",
+    "check": "node --check index.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
